@@ -13,9 +13,11 @@ class Table:
         self.comon = []
         self.pot = 0
         self.stage = 0
-        self.dealer_index = 0
         self.players = players
         self.btn_index = 0
+        self.deck.reset_cards()
+        for p in self.players:
+            p.reset()
 
     def new_hand(self):
         self.deck.reset_cards()
@@ -24,15 +26,13 @@ class Table:
         self.stage = 0
         for p in self.players:
             p.reset()
-            p.in_game = True
-            p.last_action = None
-        self.dealer_index = (self.dealer_index + 1) % 6
+        self.btn_index = (self.btn_index + 1) % 6
 
     def next_stage(self):
         self.stage = (self.stage + 1) % 4
 
     def assign_positions(self):
-        position_names = ["BTN", "SB", "BB", "UTG", "MP", "CO"]
+        position_names = ["BTN", "SB", "BB", "UTG", "HJ", "CO"]
         for i in range(self.type):
             self.players[(self.btn_index + i) % self.type].pos = position_names[i]
 
@@ -59,7 +59,7 @@ class Table:
             bb_amount = bb_player.bet(50)
 
             stage_pot += sb_amount + bb_amount
-            highest_bet = bb_player.current_bet  # BB define la apuesta mínima inicial
+            highest_bet = bb_player.current_bet
 
         # Orden en el que los jugadores actuarán
         action_order = [self.players[(starting_index + i) % self.type] for i in range(self.type)]
@@ -68,7 +68,7 @@ class Table:
             all_acted = True
 
             for player in action_order:
-                if not player.in_game or player.all_in:
+                if not player.in_game or player.all_in or last_to_raise == player:
                     continue
 
                 to_call = highest_bet - player.current_bet
@@ -101,11 +101,9 @@ class Table:
                         all_acted = False
 
                 elif action in ["raise", "bet"]:
-                    amount = decision.get("amount", 0)
-                    desired_total = amount
-                    raise_amount = desired_total - player.current_bet
-
-                    actual_bet = player.bet(desired_total)
+                    target_amount = decision.get("amount", 0)
+                    raise_amount = max(0, target_amount - player.current_bet)
+                    actual_bet = player.bet(raise_amount)
                     stage_pot += actual_bet
 
                     if player.current_bet > highest_bet:

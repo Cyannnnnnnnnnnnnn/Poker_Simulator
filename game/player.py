@@ -36,6 +36,7 @@ class Player:
         self.hand = []
         self.current_bet = 0
         self.in_game = True
+        self.last_action = None
 
     def decide(self):
         decided = input(f"Decide por {self.name}:")
@@ -45,7 +46,7 @@ class Player:
             return {"action": "fold"}
         elif decided == "check":
             return {"action": "check"}
-        elif decided == "all in":
+        elif decided == "allin":
             return {"action": "all_in"}
         else:
             decided = decided.split()

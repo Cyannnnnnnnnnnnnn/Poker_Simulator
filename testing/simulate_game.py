@@ -10,18 +10,19 @@ players = []
 for i in range(6):
     players.append(Player(f"Player {i}", 1000))
 
+players[0].stack -= 100
+
 deck = Deck()
 table = Table(players, deck)
 evaluator = HandEvaluator()
 
 #Asign positions
 table.assign_positions()
-table.new_hand()
+
+#PREFLOP
 
 for player in players:
     player.set_hand(deck.deal(2))
-
-#PREFLOP
 
 table.pot += table.start_betting_round()
 print(table.pot)
