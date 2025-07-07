@@ -15,18 +15,19 @@ class Player:
         self.pos = 0
         self.last_action = None
         self.current_bet = 0
+        self.all_in = False
 
     def bet(self, amount: int):
         real_bet = min(self.stack, amount)
         self.stack -= real_bet
         self.current_bet += real_bet
         if self.stack == 0:
+            self.all_in = True
             print(f"{self.name} está all-in con {self.current_bet}")
         return real_bet
 
     def set_hand(self, new_hand):
         self.hand = new_hand
-
 
     def fold(self):
         self.in_game = False
@@ -37,7 +38,23 @@ class Player:
         self.in_game = True
 
     def decide(self):
-        pass
+        decided = input(f"Decide por {self.name}:")
+        if decided == "call":
+            return {"action": "call"}
+        elif decided == "fold":
+            return {"action": "fold"}
+        elif decided == "check":
+            return {"action": "check"}
+        elif decided == "all in":
+            return {"action": "all_in"}
+        else:
+            decided = decided.split()
+            if decided[0] == "bet":
+                return {"action": "bet", "amount": int(decided[1])}
+            elif decided[0] == "raise":
+                return {"action": "raise", "amount": int(decided[1])}
+            return None
+
 
     def __str__(self):
         return self.name
