@@ -89,7 +89,8 @@ class HandEvaluator:
             same_suit = [c for c in cards if c.suit == suit]
             if len(same_suit) >= 5:
                 result = self._straight(same_suit)
-                return EvaluatedHand("Straight flush", result.cards, result.kickers)
+                if result:
+                    return EvaluatedHand("Straight flush", result.cards, result.kickers)
         return None
 
     def _four_of_a_kind(self, cards):
@@ -175,7 +176,7 @@ if __name__ == "__main__":
 
     # Ejemplo: mano con escalera de color (Straight Flush)
     hand = [
-        Card('A', 'd'),
+        Card('A', 's'),
         Card('T', 's'),
         Card('7', 's'),
         Card('Q', 's'),
