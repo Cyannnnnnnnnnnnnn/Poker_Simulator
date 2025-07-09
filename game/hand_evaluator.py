@@ -1,7 +1,6 @@
 from itertools import combinations
 from collections import Counter
 from functools import total_ordering
-from game.deck import Card
 
 values = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7,
           '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14}
@@ -57,6 +56,37 @@ class EvaluatedHand:
 
 
 class HandEvaluator:
+    def get_strength_ratio(self, cards):
+        if len(cards) < 5:
+            return self._evaluate_preflop_strength(cards)
+        best = self.evaluate_best_hand(cards)
+        if best is None:
+            return 0.0
+        return best.ranking / 9
+
+    def _evaluate_preflop_strength(self, hand):
+        """Evalúa la fuerza de una mano de 2 cartas preflop. Devuelve un valor entre 0 y 1."""
+        c1, c2 = hand
+        v1, v2 = values[c1.value], values[c2.value]
+
+        # Par
+        if c1.value == c2.value:
+            return v1 / 14  # Par de ases = 1.0
+
+        # Mismo palo (suited)
+        suited = c1.suit == c2.suit
+
+        # Conectores (diferencia <= 1)
+        gap = abs(v1 - v2)
+
+        score = (v1 + v2) / 28  # suma máxima = 14+14 = 28
+        if suited:
+            score += 0.1
+        if gap == 1:
+            score += 0.05
+
+        return min(score, 1.0)
+
     def evaluate_best_hand(self, cards):
         best = None
         for combo in combinations(cards, 5):
@@ -170,22 +200,3 @@ class HandEvaluator:
         ordered = sorted(cards, key=lambda c: values[c.value], reverse=True)
         return EvaluatedHand("High", [ordered[0]], ordered[1:])
 
-
-if __name__ == "__main__":
-    evaluator = HandEvaluator()
-
-    # Ejemplo: mano con escalera de color (Straight Flush)
-    hand = [
-        Card('A', 's'),
-        Card('T', 's'),
-        Card('7', 's'),
-        Card('Q', 's'),
-        Card('K', 's'),
-        Card('2', 'd'),
-        Card('3', 'c'),
-    ]
-
-    best = evaluator.evaluate_best_hand(hand)
-    print("Best hand type:", best.type)
-    print("Cards:", best.cards)
-    print("Kickers:", best.kickers)

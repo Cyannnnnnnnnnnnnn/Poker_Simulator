@@ -1,6 +1,6 @@
 from typing import List
 
-from game.deck import Deck
+from game.side_pot_manager import SidePotManager
 from game.player import Player
 from game.hand_evaluator import HandEvaluator
 
@@ -16,6 +16,9 @@ class Table:
         self.players = players
         self.btn_index = 0
         self.deck.reset_cards()
+        self.side_pot_manager = SidePotManager()
+        self.evaluator = HandEvaluator()
+
         for p in self.players:
             p.reset()
 
@@ -27,6 +30,7 @@ class Table:
         for p in self.players:
             p.reset()
         self.btn_index = (self.btn_index + 1) % 6
+        self.side_pot_manager.reset()
 
     def next_stage(self):
         self.stage = (self.stage + 1) % 4
@@ -72,15 +76,25 @@ class Table:
                     continue
 
                 to_call = highest_bet - player.current_bet
-                decision = player.decide()
+
+                if player.ai_controller is not None:
+                    hand = player.hand + self.comon
+                    strength = self.evaluator.get_strength_ratio(hand)
+                    player.ai_controller.update_strength_estimate(strength)
+                    decision = player.ai_controller.decide(player, self.comon, self.stage)
+                else:
+                    decision = player.decide()
+
                 action = decision.get("action")
 
                 if action == "fold":
                     player.in_game = False
+                    print(f"{player} folds")
 
                 elif action == "call":
                     actual_bet = player.bet(to_call)
                     stage_pot += actual_bet
+                    print(f"{player} calls with {actual_bet}")
 
                 elif action == "check":
                     if to_call > 0:
@@ -90,8 +104,7 @@ class Table:
                     else:
                         print(f"{player.name} hace check.")
 
-
-                elif action == "allin":
+                elif action == "all_in":
                     actual_bet = player.bet(player.stack)
                     stage_pot += actual_bet
                     player.all_in = True
@@ -99,6 +112,7 @@ class Table:
                         highest_bet = player.current_bet
                         last_to_raise = player
                         all_acted = False
+                    print(f"{player} allin with {actual_bet}")
 
                 elif action in ["raise", "bet"]:
                     target_amount = decision.get("amount", 0)
@@ -111,6 +125,8 @@ class Table:
                         last_to_raise = player
                         all_acted = False
 
+                    print(f"{player} bets with {actual_bet}")
+
             if all_acted or all(not p.in_game or p.all_in or p.current_bet == highest_bet for p in self.players):
                 break
         return stage_pot
@@ -121,30 +137,15 @@ class Table:
             self.comon.append(card)
 
     def resolve_winner(self):
-        evaluator = HandEvaluator()
+        evaluator = self.evaluator
         players_in_showdown = [p for p in self.players if p.in_game and p.hand]
 
         if not players_in_showdown:
             print("No hay jugadores activos en showdown.")
             return []
 
-        # Calcular side pots
-        all_bets = sorted(set(p.current_bet for p in self.players if p.current_bet > 0))
-        side_pots = []  # (monto, jugadores)
-
-        previous = 0
-        remaining_players = self.players[:]
-
-        for bet in all_bets:
-            contributors = [p for p in remaining_players if p.current_bet >= bet]
-            pot_size = (bet - previous) * len(contributors)
-            side_pots.append((pot_size, contributors))
-            previous = bet
-            # Elimina jugadores con stack igual a ese bet (all-in exacto)
-            remaining_players = [p for p in remaining_players if p.current_bet > bet]
-
-        winners_summary = []
-        remaining_pot = self.pot
+        self.side_pot_manager.collect_bets(self.players)
+        self.side_pot_manager.create_pots()
 
         print("\n--- Showdown ---")
         for p in players_in_showdown:
@@ -152,32 +153,17 @@ class Table:
             best = evaluator.evaluate_best_hand(full_hand)
             print(f"{p.name} => {best}")
 
-        # Resolver cada side pot
-        for i, (pot_amount, contributors) in enumerate(side_pots):
-            contenders = [p for p in players_in_showdown if p in contributors]
-            if not contenders:
-                continue
-
-            best_score = max(evaluator.evaluate_best_hand(p.hand + self.comon) for p in contenders)
-            winners = [p for p in contenders if evaluator.evaluate_best_hand(p.hand + self.comon) == best_score]
-
-            split = pot_amount // len(winners)
-            remainder = pot_amount % len(winners)
-            remaining_pot -= pot_amount
-
-            for w in winners:
-                w.stack += split
-            if remainder > 0:
-                winners[0].stack += remainder
-
-            winners_summary.append((winners, pot_amount))
+        results = self.side_pot_manager.resolve_pots(evaluator, self.comon)
 
         print("\n--- Resultados ---")
-        for winners, pot in winners_summary:
+        for i, (winners, pot) in enumerate(results):
             names = ", ".join(w.name for w in winners)
-            print(f"{names} ganan {pot} fichas")
+            if i == 0:
+                print(f"{names} gana el **main pot** de {pot} fichas")
+            else:
+                print(f"{names} gana el **side pot {i}** de {pot} fichas")
 
-        return winners_summary
+        return results
 
     def register_event(self, player, event):
         pass

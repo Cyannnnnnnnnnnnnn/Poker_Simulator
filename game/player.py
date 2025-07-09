@@ -1,12 +1,9 @@
-from typing import List
-
-from game.deck import Card
 
 max_6_pos = ["SB", "BB", "UTG", "HJ", "CO", "BTN"]
 max_9_pos = ["SB", "BB", "UTG", "EP2", "MP", "MP2", "HJ", "CO", "BTN"]
 
 class Player:
-    def __init__(self, name, stack: int, is_human: bool = False):
+    def __init__(self, name, stack: int, is_human: bool = False, ai_controller = None):
         self.name = name
         self.hand = None
         self.stack = stack
@@ -16,6 +13,7 @@ class Player:
         self.last_action = None
         self.current_bet = 0
         self.all_in = False
+        self.ai_controller = ai_controller
 
     def bet(self, amount: int):
         real_bet = min(self.stack, amount)
@@ -38,23 +36,31 @@ class Player:
         self.in_game = True
         self.last_action = None
 
-    def decide(self):
-        decided = input(f"Decide por {self.name}:")
-        if decided == "call":
-            return {"action": "call"}
-        elif decided == "fold":
-            return {"action": "fold"}
-        elif decided == "check":
-            return {"action": "check"}
-        elif decided == "allin":
-            return {"action": "all_in"}
+    def decide(self, hand_strength = None, to_call = None):
+
+        if self.is_human:
+            decided = input(f"Decide por {self.name}:")
+            if decided == "call":
+                return {"action": "call"}
+            elif decided == "fold":
+                return {"action": "fold"}
+            elif decided == "check":
+                return {"action": "check"}
+            elif decided == "allin":
+                return {"action": "all_in"}
+            else:
+                decided = decided.split()
+                if decided[0] == "bet":
+                    return {"action": "bet", "amount": int(decided[1])}
+                elif decided[0] == "raise":
+                    return {"action": "raise", "amount": int(decided[1])}
+                return None
         else:
-            decided = decided.split()
-            if decided[0] == "bet":
-                return {"action": "bet", "amount": int(decided[1])}
-            elif decided[0] == "raise":
-                return {"action": "raise", "amount": int(decided[1])}
-            return None
+            return self.ai_controller.decide_action(
+                hand_strength, to_call, self.stack
+            )
+
+
 
 
     def __str__(self):
